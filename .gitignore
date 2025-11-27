@@ -13,6 +13,14 @@ staticfiles/
 .env
 .venv/
 README.md
+*.env
+*.sqlite3
+
+# Django
+*.log
+media/
+outfits/migrations/
+
 # IDE
 .vscode/
 .idea/
