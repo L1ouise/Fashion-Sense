@@ -6,19 +6,18 @@ __pycache__/
 
 # Django / SQLite
 db.sqlite3
+*.sqlite3
 media/
 staticfiles/
 
 # Environments
 .env
-.venv/
-README.md
 *.env
-*.sqlite3
+.venv/
+venv/
 
 # Django
 *.log
-media/
 outfits/migrations/
 
 # IDE
