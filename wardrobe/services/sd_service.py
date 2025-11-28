@@ -12,8 +12,24 @@ logger = logging.getLogger(__name__)
 
 
 def _placeholder(prompt: str) -> str:
+    # Inline SVG placeholder (no network dependency)
     digest = hashlib.md5(prompt.encode("utf-8")).hexdigest()[:6]
-    return f"https://placehold.co/768x1024?text=Look+{digest}"
+    svg = f"""<svg xmlns='http://www.w3.org/2000/svg' width='768' height='1024'>
+    <rect width='100%' height='100%' fill='%23e2e8f0'/>
+    <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%23364754' font-size='28' font-family='Arial, sans-serif'>Look {digest}</text>
+    </svg>"""
+    encoded = base64.b64encode(svg.encode("utf-8")).decode("utf-8")
+    return f"data:image/svg+xml;base64,{encoded}"
+
+
+def _hf_api_url(model: str) -> str:
+    # Prefer router; if user passes api-inference.huggingface.co, rewrite it.
+    env_url = os.getenv("HF_IMAGE_API", "")
+    if env_url:
+        if "api-inference.huggingface.co" in env_url:
+            return f"https://router.huggingface.co/hf-inference/models/{model}"
+        return env_url
+    return f"https://router.huggingface.co/hf-inference/models/{model}"
 
 
 def _generate_hf_image(prompt: str) -> Optional[str]:
@@ -22,10 +38,7 @@ def _generate_hf_image(prompt: str) -> Optional[str]:
     if not token:
         return None
 
-    api_url = os.getenv(
-        "HF_IMAGE_API",
-        f"https://router.huggingface.co/hf-inference/models/{model}",
-    )
+    api_url = _hf_api_url(model)
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "image/png",
