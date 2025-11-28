@@ -18,13 +18,19 @@ def _placeholder(prompt: str) -> str:
 
 def _generate_hf_image(prompt: str) -> Optional[str]:
     token = os.getenv("HF_TOKEN")
-    model = os.getenv("HF_IMAGE_MODEL", "stabilityai/stable-diffusion-3.5-large")
+    model = os.getenv("HF_IMAGE_MODEL", "black-forest-labs/FLUX.1-schnell")
     if not token:
         return None
 
-    api_url = os.getenv("HF_IMAGE_API", "https://router.huggingface.co/v1/text-to-image")
-    headers = {"Authorization": f"Bearer {token}"}
-    payload = {"model": model, "prompt": prompt}
+    api_url = os.getenv(
+        "HF_IMAGE_API",
+        f"https://router.huggingface.co/hf-inference/models/{model}",
+    )
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "image/png",
+    }
+    payload = {"inputs": prompt}
 
     response = requests.post(api_url, headers=headers, json=payload, timeout=60)
     if response.status_code != 200:  # pragma: no cover - network bound
@@ -33,6 +39,9 @@ def _generate_hf_image(prompt: str) -> Optional[str]:
 
     # HF router returns raw image bytes; encode as data URL so the frontend can display it directly.
     if not response.content:
+        return None
+    # If HF returns JSON error despite 200, ignore.
+    if "application/json" in response.headers.get("Content-Type", ""):
         return None
     encoded = base64.b64encode(response.content).decode("utf-8")
     return f"data:image/png;base64,{encoded}"
@@ -54,8 +63,8 @@ def _generate_sd_image(prompt: str) -> Optional[str]:
     response = requests.post(api_url, json=payload, headers=headers, timeout=60)
 
     if not response.ok:  # pragma: no cover - network bound
-        logger.error("Stable Diffusion service returned %s", response.status_code)
-        raise ServiceError("La génération d'image a échoué")
+        logger.warning("Stable Diffusion service returned %s", response.status_code)
+        return None
 
     data = response.json()
     return data.get("url") or data.get("image_url")
@@ -82,8 +91,6 @@ def generate_image(prompt: str) -> Optional[str]:
         sd_url = _generate_sd_image(prompt)
         if sd_url:
             return sd_url
-    except ServiceError:
-        raise
     except Exception as exc:  # pragma: no cover - network bound
         logger.warning("SD image generation error, falling back to placeholder: %s", exc)
 
